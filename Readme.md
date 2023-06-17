@@ -17,7 +17,9 @@
 	node .\index.js lookup_domain -n <domain>
 
 2. regist domain
+	
 	node .\index.js register_domain -n <domain>
 
 2. transfer domain
-  node .\index.js transfer_domain -n <domain> -d <destination>
+	
+  	node .\index.js transfer_domain -n <domain> -d <destination>
