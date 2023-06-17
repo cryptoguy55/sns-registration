@@ -1,12 +1,13 @@
 require('dotenv').config()
 const { program } = require("commander");
 const { getOrCreateAssociatedTokenAccount } = require('@solana/spl-token');
-const { clusterApiUrl, Connection, Keypair, PublicKey } = require('@solana/web3.js');
+const { clusterApiUrl, Connection, Keypair, PublicKey, sendAndConfirmTransaction, Transaction  } = require('@solana/web3.js');
 const { 
   registerDomainName,
   transferNameOwnership,
   NameRegistryState,
   getDomainKey,
+  getReverseKey, 
   SOL_TLD_AUTHORITY
 } = require("@bonfida/spl-name-service")
 const bs58 = require("bs58");
@@ -28,7 +29,7 @@ const domainLookup = async (domain_sol) => {
       connection,
       pubkey
     );
-    console.log(registry)
+    console.log(registry.parentName.toBase58())
   } catch(e) {
     console.log(e.message)
   }
@@ -46,6 +47,12 @@ const registerSOLDomain = async (domain_sol) => {
     )
     console.log(buyer.toBase58())
     console.log(buyerTokenAccount.address.toBase58())
+    const reverseKey = await getReverseKey(domain_sol);
+    const acc = await connection.getAccountInfo(reverseKey);
+    if (!!acc) {
+      console.log(`Alredy registered: ${domain_sol}`);
+      return false;
+    }
     const [, ix] = await registerDomainName(
       connection,
       domain_sol,
@@ -53,10 +60,20 @@ const registerSOLDomain = async (domain_sol) => {
       buyer,
       buyerTokenAccount.address
     );
-    console.log(ix)
+    console.log(...ix.flat())
+    const tx = new Transaction();
+    tx.feePayer = wallet.publicKey;
+    tx.add(...ix.flat())
+    console.log(tx)
+    const result = await sendAndConfirmTransaction (
+      connection,
+      tx,
+      [wallet]
+    )
+    console.log(result)
     return true
   } catch(e) {
-    console.log(e.message)
+    console.log(e)
     return false
   }
 }
@@ -64,19 +81,42 @@ const registerSOLDomain = async (domain_sol) => {
 const transferSOLDomain = async (domain_sol, phantomWalletDestinatiob) => {
   try {
     // New owner of the domain
+    const { pubkey } = await getDomainKey(domain_sol);
+    let anotherKeypair = Keypair.generate();
+
+    // Step 2
+    // The registry object contains all the info about the domain name
+    // The NFT owner is of type PublicKey | undefined
+    const { registry, nftOwner } = await NameRegistryState.retrieve(
+      connection,
+      pubkey
+    );
     const newOwner = new PublicKey(phantomWalletDestinatiob);
 
     const ix = await transferNameOwnership(
       connection,
       domain_sol,
       newOwner,
-      undefined,
-      SOL_TLD_AUTHORITY
+      wallet.publicKey,
+      registry.class,
+      registry.parentName
     );
-    console.log(ix)
+    const tx = new Transaction();
+    tx.add(ix)
+    tx.feePayer = wallet.publicKey;
+    tx.recentBlockhash =(await connection.getRecentBlockhash('max')).blockhash;
+    // await tx.setSigners(wallet.publicKey, anotherKeypair.publicKey);
+    // await tx.partialSign(anotherKeypair)
+    console.log(tx)
+    const result = await sendAndConfirmTransaction (
+      connection,
+      tx,
+      [wallet]
+    )
+    console.log(result)
     return true;
   } catch(e) {
-    console.log(e.message)
+    console.log(e)
     return false;
   }
 }
