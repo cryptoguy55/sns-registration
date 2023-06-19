@@ -8,6 +8,7 @@ const {
   NameRegistryState,
   getDomainKey,
   getReverseKey, 
+  ROOT_DOMAIN_ACCOUNT,
   SOL_TLD_AUTHORITY
 } = require("@bonfida/spl-name-service")
 const bs58 = require("bs58");
@@ -82,7 +83,6 @@ const transferSOLDomain = async (domain_sol, phantomWalletDestinatiob) => {
   try {
     // New owner of the domain
     const { pubkey } = await getDomainKey(domain_sol);
-    let anotherKeypair = Keypair.generate();
 
     // Step 2
     // The registry object contains all the info about the domain name
@@ -92,21 +92,18 @@ const transferSOLDomain = async (domain_sol, phantomWalletDestinatiob) => {
       pubkey
     );
     const newOwner = new PublicKey(phantomWalletDestinatiob);
-
+      console.log(registry)
     const ix = await transferNameOwnership(
       connection,
       domain_sol,
       newOwner,
-      wallet.publicKey,
-      registry.class,
-      registry.parentName
+      undefined,
+      ROOT_DOMAIN_ACCOUNT
     );
+    console.log(ROOT_DOMAIN_ACCOUNT)
     const tx = new Transaction();
     tx.add(ix)
     tx.feePayer = wallet.publicKey;
-    tx.recentBlockhash =(await connection.getRecentBlockhash('max')).blockhash;
-    // await tx.setSigners(wallet.publicKey, anotherKeypair.publicKey);
-    // await tx.partialSign(anotherKeypair)
     console.log(tx)
     const result = await sendAndConfirmTransaction (
       connection,
