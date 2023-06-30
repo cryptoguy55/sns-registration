@@ -100,11 +100,12 @@ const transferSOLDomain = async (domain_sol, phantomWalletDestinatiob) => {
       undefined,
       ROOT_DOMAIN_ACCOUNT
     );
-    console.log(ROOT_DOMAIN_ACCOUNT)
     const tx = new Transaction();
     tx.add(ix)
     tx.feePayer = wallet.publicKey;
-    console.log(tx)
+		tx.recentBlockhash = (await connection.getRecentBlockhash('max')).blockhash;
+		await tx.setSigners(wallet.publicKey);
+    // console.log(tx)
     const result = await sendAndConfirmTransaction (
       connection,
       tx,
